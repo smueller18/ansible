@@ -79,6 +79,10 @@ options:
     description:
       - List of IPAM config blocks. Consult docker docs for valid options and values.
 
+  ipam_options:
+    description:
+      - IPAM driver-specific options as a key-value mapping.
+
   state:
     description:
       - I(absent) deletes the network. If a network has connected containers, it
@@ -179,6 +183,13 @@ EXAMPLES = '''
       - subnet: 172.4.27.0/24
       - subnet: fdd1:ac8c:0557:7ce2::/64
 
+- name: Create a network with driver-specific options
+  docker_network:
+    name: network_specific_options
+    ipam_options:
+      foo: bar
+      baz: "0"
+
 - name: Delete a network, disconnecting all containers
   docker_network:
     name: network_four
@@ -219,6 +230,7 @@ class TaskParameters(DockerBaseClass):
         self.driver_options = None
         self.ipam_driver = None
         self.ipam_config = None
+        self.ipam_options = None
         self.appends = None
         self.force = None
         self.internal = None
@@ -288,6 +300,20 @@ class DockerNetworkManager(object):
             if not net.get('IPAM') or net['IPAM']['Driver'] != self.parameters.ipam_driver:
                 different = True
                 differences.append('ipam_driver')
+        if self.parameters.ipam_options:
+            if not net.get('IPAM') or not net['IPAM'].get('Options'):
+                different = True
+                differences.append('ipam_options')
+            else:
+                for key, value in self.parameters.ipam_options.items():
+                    if not key in net['IPAM']['Options']:
+                        # key not found
+                        different = True
+                        differences.append('ipam_options.%s' % key)
+                    elif net['IPAM']['Options'].get(key) != value:
+                        # key has different value
+                        different = True
+                        differences.append('ipam_options.%s' % key)
         if self.parameters.ipam_config:
             if not net.get('IPAM') or not net['IPAM']['Config']:
                 different = True
@@ -348,6 +374,7 @@ class DockerNetworkManager(object):
 
             if HAS_DOCKER_PY_2 or HAS_DOCKER_PY_3:
                 ipam_config = IPAMConfig(driver=self.parameters.ipam_driver,
+                                         options=self.parameters.ipam_options,
                                          pool_configs=ipam_pools)
             else:
                 ipam_config = utils.create_ipam_config(driver=self.parameters.ipam_driver,
