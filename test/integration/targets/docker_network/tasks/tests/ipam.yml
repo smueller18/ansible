@@ -5,10 +5,11 @@
     nname_ipam_1: "{{ name_prefix ~ '-network-ipam-1' }}"
     nname_ipam_2: "{{ name_prefix ~ '-network-ipam-2' }}"
     nname_ipam_3: "{{ name_prefix ~ '-network-ipam-3' }}"
+    nname_ipam_4: "{{ name_prefix ~ '-network-ipam-4' }}"
 
 - name: Registering network names
   set_fact:
-    dnetworks: "{{ dnetworks }} + [nname_ipam_0, nname_ipam_1, nname_ipam_2, nname_ipam_3]"
+    dnetworks: "{{ dnetworks }} + [nname_ipam_0, nname_ipam_1, nname_ipam_2, nname_ipam_3, nname_ipam_4]"
 
 
 #################### network-ipam-0 deprecated ####################
@@ -196,3 +197,19 @@
   docker_network:
     name: "{{ nname_ipam_3 }}"
     state: absent
+
+
+#################### network-ipam-4 ####################
+
+- name: Create network with invalid subnet
+  docker_network:
+    name: "{{ nname_ipam_4 }}"
+    ipam_config:
+      - subnet: 172.3.29.0
+  register: network
+  ignore_errors: yes
+
+- assert:
+    that:
+      - network is failed
+      - 'network.msg == "\"172.3.29.0\" is not a valid CIDR'
